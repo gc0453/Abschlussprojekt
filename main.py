@@ -11,11 +11,8 @@ st.set_page_config(
     layout="wide"
 )
 
-<<<<<<< HEAD
 
 
-=======
->>>>>>> 8e5be7d830871698df55eef00321281689f12cc6
 # ── Session State initialisieren ────────────────────────────────────────────
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
