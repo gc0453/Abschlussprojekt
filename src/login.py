@@ -2,9 +2,10 @@ import streamlit as st
 import bcrypt
 import json
 import os
+import re
 
+# ── Dateipfad und Dateiname ─────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 USER_FILE = os.path.join(BASE_DIR,"data","users.json")
 
 # ── Passwort prüfen ─────────────────────────────────────────────────────────
@@ -36,35 +37,64 @@ def check_password(password: str, hashed_password: str) -> bool:
         hashed_password.encode("utf-8")
     )
 
+def check_password_strength(password: str):
+    checks = {
+        "Mindestens 8 Zeichen": len(password) >= 8,
+        "Groß- und Kleinbuchstaben": (
+            re.search(r"[A-Z]", password) is not None
+            and re.search(r"[a-z]", password) is not None
+        ),
+        "Mindestens ein Sonderzeichen": (
+            re.search(r"[!@#$%^&*(),.?\":{}|<>_\-+=/\\[\];']", password)
+            is not None
+        )
+    }
+
+    return checks
+
 def show_register():
 
     st.title("👤 Benutzer erstellen")
 
-    with st.form("register_form"):
-        username = st.text_input("Neuer Benutzername")
-        password = st.text_input("Neues Passwort", type="password")
-        password_repeat = st.text_input("Passwort wiederholen", type="password")
+    username = st.text_input("Neuer Benutzername")
+    password = st.text_input("Neues Passwort", type="password")
+    password_repeat = st.text_input("Passwort wiederholen", type="password")
 
-        submitted = st.form_submit_button("Benutzer erstellen")
+    checks = check_password_strength(password)
 
-        if submitted:
-            users = load_users()
+    st.write("**Passwort-Anforderungen:**")
 
-            if username == "" or password == "":
-                st.error("Benutzername und Passwort dürfen nicht leer sein.")
+    for text, valid in checks.items():
+        if valid:
+            st.success(f"✅ {text}")
+        else:
+            st.error(f"❌ {text}")
 
-            elif username in users:
-                st.error("Benutzer existiert bereits.")
+    if all(checks.values()):
+        st.success("🟢 Starkes Passwort")
+    else:
+        st.warning("Passwort erfüllt noch nicht alle Anforderungen.")
 
-            elif password != password_repeat:
-                st.error("Passwörter stimmen nicht überein.")
+    if st.button("Benutzer erstellen"):
+        users = load_users()
 
-            else:
-                users[username] = hash_password(password)
-                save_users(users)
-                st.success("Benutzer wurde erfolgreich erstellt.")
+        if username == "" or password == "":
+            st.error("Benutzername und Passwort dürfen nicht leer sein.")
 
-    # Wichtig: außerhalb von st.form()
+        elif username in users:
+            st.error("Benutzer existiert bereits.")
+
+        elif password != password_repeat:
+            st.error("Passwörter stimmen nicht überein.")
+
+        elif not all(checks.values()):
+            st.error("Das Passwort erfüllt nicht alle Anforderungen.")
+
+        else:
+            users[username] = hash_password(password)
+            save_users(users)
+            st.success("Benutzer wurde erfolgreich erstellt.")
+
     if st.button("Zum Login"):
         st.session_state.page = "login"
         st.rerun()
