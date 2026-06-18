@@ -12,11 +12,6 @@ st.set_page_config(
 )
 
 
-# ── Test-Benutzer ────────────────────────────────────────────────────────────
-USERS = {
-    "admin": "passwort123",
-    "christoph": "geheim"
-}
 
 # ── Session State initialisieren ────────────────────────────────────────────
 if "logged_in" not in st.session_state:
