@@ -6,7 +6,10 @@ from src.fit_map import plot_fit_map, COLOR_OPTIONS
 from datetime import date
 from src.add_person import add_person_with_ekg, update_person
 from src.add_person import add_person_with_ekg, update_person, delete_person
-
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 
 def show_ekgstreamlit():
     """Hauptfunktion des EKG Dashboards nach dem Login.
@@ -200,13 +203,99 @@ def show_ekgstreamlit():
                 st.success(msg)
                 st.rerun()                
 
+        # PDF Export
+        # ── PDF-Export ───────────────────────────────────────────────────────────
+        with st.expander("📄 PDF-Report exportieren"):
+
+            export_name = st.selectbox("Person auswählen",person_names,key="pdf_select")
+            export_person = next(p for p in persons if p.get_full_name() == export_name)
+
+            if st.button("📥 PDF erstellen", key="create_pdf"):
+
+                pdf_buffer = BytesIO()
+                c = canvas.Canvas(pdf_buffer, pagesize=A4)
+
+                width, height = A4
+                y = height - 50
+
+                c.setFont("Helvetica-Bold", 18)
+                c.drawString(50, y, "EKG-Report")
+                
+                try:
+                    c.drawImage(
+                        export_person.picture_path,      # Pfad kommt aus der Person-Klasse
+                        width - 150,
+                        height - 170,
+                        width=90,
+                        height=90,
+                        preserveAspectRatio=True,
+                        mask="auto"
+                        )
+                except Exception:
+                    pass
+
+                y -= 40
+
+                c.setFont("Helvetica", 12)
+                c.drawString(50, y, f"Name: {export_person.firstname} {export_person.lastname}")
+                y -= 20
+                c.drawString(50, y, f"Geburtsjahr: {export_person.date_of_birth}")
+                y -= 20
+                c.drawString(50, y, f"Geschlecht: {export_person.gender}")
+                y -= 35
+
+                c.setFont("Helvetica-Bold", 14)
+                c.drawString(50, y, "EKG-Tests")
+                y -= 25
+
+                c.setFont("Helvetica", 11)
+
+                for test in export_person.ekg_tests:
+
+                    ekg = EKGdata({
+                        "id": test["id"],
+                        "date": test["date"],
+                        "result_link": test["result_link"]
+                    })
+
+                    ekg.find_peaks()
+
+                    heart_rate = ekg.estimate_hr()
+
+                    start_time = ekg.df["Zeit in ms"].iloc[0]
+                    end_time = ekg.df["Zeit in ms"].iloc[-1]
+                    duration_minutes = (end_time - start_time) / 1000 / 60
+
+                    c.drawString(50, y, f"Testdatum: {test['date']}")
+                    y -= 18
+                    c.drawString(70, y, f"Testdauer: {duration_minutes:.1f} Minuten")
+                    y -= 18
+                    c.drawString(70, y, f"Durchschnittliche Herzrate: {heart_rate:.1f} BPM")
+                    y -= 18
+                    c.drawString(70, y, f"Gefundene Peaks: {len(ekg.peaks)}")
+                    y -= 30
+
+                    if y < 80:
+                        c.showPage()
+                        y = height - 50
+                        c.setFont("Helvetica", 11)
+
+                c.save()
+                pdf_buffer.seek(0)
+
+                st.download_button(
+                    label="⬇️ PDF herunterladen",
+                    data=pdf_buffer,
+                    file_name=f"{export_person.firstname}_{export_person.lastname}_Report.pdf",
+                    mime="application/pdf"
+                )
     # ════════════════════════════════════════════════════════════════════════
     # SEITE: Aktivitätskarte
     # ════════════════════════════════════════════════════════════════════════
     elif st.session_state.page == "karte":
         st.title("🗺️ Aktivitätskarte")
 
-        fit_file = st.file_uploader("FIT-Datei hochladen", type=["fit"])
+        fit_file = st.file_uploader("   FIT-Datei hochladen", type=["fit"])
 
         if fit_file is not None:
             with st.spinner("Daten werden geladen..."):
