@@ -3,11 +3,28 @@ from src.person import get_person_data
 from src.ekgdata import EKGdata
 from src.read_fit_data import load_fit_file
 from src.fit_map import plot_fit_map, COLOR_OPTIONS
+from datetime import date
+from src.add_person import add_person_with_ekg, update_person
+from src.add_person import add_person_with_ekg, update_person, delete_person
 
 
 def show_ekgstreamlit():
-    # ── Seiteneinstellungen ──────────────────────────────────────────────────
-    st.title("Dashboard für EKG-Analyse und Aktivitätskarten")
+    """Hauptfunktion des EKG Dashboards nach dem Login.
+
+    Rendert die Streamlit-Oberfläche mit zwei Seiten:
+    - EKG Analyse: Personenauswahl, EKG-Plot und Herzfrequenz-Kennzahlen
+    - Aktivitätskarte: Upload einer .fit-Datei und interaktive GPS-Karte
+
+    Die aktive Seite wird über st.session_state.page gesteuert.
+    """
+
+    # ── Session State initialisieren ─────────────────────────────────────────
+    if st.session_state.page not in ("ekg", "karte"):
+        st.session_state.page = "ekg"
+
+    # ── Personen immer laden (auch wenn Karte aktiv) ─────────────────────────
+    persons = get_person_data()
+    person_names = [p.get_full_name() for p in persons]
 
     # ── Sidebar ──────────────────────────────────────────────────────────────
     with st.sidebar:
@@ -18,24 +35,34 @@ def show_ekgstreamlit():
             st.session_state.username = ""
             st.rerun()
 
-    # ── Tabs ─────────────────────────────────────────────────────────────────
-    tab1, tab2 = st.tabs(["EKG Analyse", "🗺️ Aktivitätskarte"])
+        st.divider()
+
+        # ── Hauptnavigation ───────────────────────────────────────────────────
+        st.subheader("Navigation")
+        if st.button("🫀 EKG Analyse", use_container_width=True):
+            st.session_state.page = "ekg"
+            st.rerun()
+        if st.button("🗺️ Aktivitätskarte", use_container_width=True):
+            st.session_state.page = "karte"
+            st.rerun()
+
+        st.divider()
+
+        # ── Untermenü nur wenn EKG aktiv ──────────────────────────────────────
+        if st.session_state.page == "ekg":
+            st.subheader("Person auswählen")
+            selected_name = st.selectbox("Person", person_names)
+        else:
+            selected_name = person_names[0]  # Fallback, wird nicht angezeigt
+
+    person = next(p for p in persons if p.get_full_name() == selected_name)
 
     # ════════════════════════════════════════════════════════════════════════
-    # TAB 1 — EKG Analyse (bestehender Code, unverändert)
+    # SEITE: EKG Analyse
     # ════════════════════════════════════════════════════════════════════════
-    with tab1:
-        st.title("🫀 EKG Analyse")
-        # ── Personen laden ───────────────────────────────────────────────────
-        persons = get_person_data()
-        person_names = [p.get_full_name() for p in persons]
+    if st.session_state.page == "ekg":
+        st.title("🫀 EKG Dashboard")
 
-        # ── Sidebar: Person auswählen ─────────────────────────────────────────
-        st.sidebar.header("Person auswählen")
-        selected_name = st.sidebar.selectbox("Person", person_names)
-        person = next(p for p in persons if p.get_full_name() == selected_name)
-
-        # ── Personen-Info ─────────────────────────────────────────────────────
         col1, col2 = st.columns([1, 3])
 
         with col1:
@@ -53,7 +80,6 @@ def show_ekgstreamlit():
 
         st.divider()
 
-        # ── EKG-Daten ─────────────────────────────────────────────────────────
         if not person.ekg_tests:
             st.info("Keine EKG-Daten für diese Person vorhanden.")
         else:
@@ -75,12 +101,110 @@ def show_ekgstreamlit():
             fig = ekg.plot_time_series()
             st.plotly_chart(fig, use_container_width=True)
 
+        st.divider()
+
+        # ── Neue Person + EKG hinzufügen ──────────────────────────────────
+        with st.expander("➕ Neue Person + EKG hinzufügen"):
+            with st.form("add_person_form"):
+                st.subheader("Persönliche Daten")
+                col_a, col_b = st.columns(2)
+                new_firstname = col_a.text_input("Vorname")
+                new_lastname = col_b.text_input("Nachname")
+
+                col_c, col_d = st.columns(2)
+                new_dob = col_c.number_input("Geburtsjahr", min_value=1900, max_value=2025, value=1990)
+                new_gender = col_d.selectbox("Geschlecht", ["male", "female"])
+
+                new_picture = st.file_uploader("Profilbild (optional)", type=["jpg", "jpeg", "png"])
+
+                st.subheader("EKG-Test")
+                new_ekg_file = st.file_uploader("EKG-Datei (.txt)", type=["txt"])
+                new_ekg_date = st.text_input("Datum des Tests (z.B. 24.6.2026)")
+
+                submitted_add = st.form_submit_button("Person speichern")
+
+                if submitted_add:
+                    if not new_firstname or not new_lastname:
+                        st.error("Bitte Vor- und Nachname angeben.")
+                    elif new_ekg_file is None:
+                        st.error("Bitte eine EKG-Datei hochladen.")
+                    elif not new_ekg_date:
+                        st.error("Bitte ein Datum angeben.")
+                    else:
+                        msg = add_person_with_ekg(
+                            firstname=new_firstname,
+                            lastname=new_lastname,
+                            date_of_birth=int(new_dob),
+                            gender=new_gender,
+                            ekg_file_bytes=new_ekg_file.read(),
+                            ekg_filename=new_ekg_file.name,
+                            ekg_date=new_ekg_date,
+                            picture_bytes=new_picture.read() if new_picture else None,
+                            picture_filename=new_picture.name if new_picture else None,
+                        )
+                        st.success(msg)
+                        st.rerun()
+
+        # ── Bestehende Person editieren ───────────────────────────────────
+        with st.expander("✏️ Bestehende Person editieren"):
+            edit_name = st.selectbox("Person auswählen", person_names, key="edit_select")
+            edit_person = next(p for p in persons if p.get_full_name() == edit_name)
+
+            with st.form("edit_person_form"):
+                st.subheader("Daten bearbeiten")
+                col_e, col_f = st.columns(2)
+                edit_firstname = col_e.text_input("Vorname", value=edit_person.firstname)
+                edit_lastname = col_f.text_input("Nachname", value=edit_person.lastname)
+
+                col_g, col_h = st.columns(2)
+                edit_dob = col_g.number_input(
+                    "Geburtsjahr",
+                    min_value=1900,
+                    max_value=2025,
+                    value=edit_person.date_of_birth
+                )
+                gender_options = ["male", "female"]
+                edit_gender = col_h.selectbox(
+                    "Geschlecht",
+                    gender_options,
+                    index=gender_options.index(edit_person.gender) if edit_person.gender in gender_options else 0
+                )
+
+                edit_picture = st.file_uploader(
+                    "Neues Profilbild (optional, leer lassen um beizubehalten)",
+                    type=["jpg", "jpeg", "png"],
+                    key="edit_picture"
+                )
+
+                submitted_edit = st.form_submit_button("Änderungen speichern")
+
+                if submitted_edit:
+                    if not edit_firstname or not edit_lastname:
+                        st.error("Bitte Vor- und Nachname angeben.")
+                    else:
+                        msg = update_person(
+                            person_id=edit_person.id,
+                            firstname=edit_firstname,
+                            lastname=edit_lastname,
+                            date_of_birth=int(edit_dob),
+                            gender=edit_gender,
+                            picture_bytes=edit_picture.read() if edit_picture else None,
+                            picture_filename=edit_picture.name if edit_picture else None,
+                        )
+                        st.success(msg)
+                        st.rerun()
+            st.divider()
+            st.warning(f"⚠️ {edit_person.firstname} {edit_person.lastname} endgültig löschen?")
+            if st.button("🗑️ Person löschen", key="delete_btn"):
+                msg = delete_person(edit_person.id)
+                st.success(msg)
+                st.rerun()                
+
     # ════════════════════════════════════════════════════════════════════════
-    # TAB 2 — Aktivitätskarte aus .fit-Datei
+    # SEITE: Aktivitätskarte
     # ════════════════════════════════════════════════════════════════════════
-    with tab2:
+    elif st.session_state.page == "karte":
         st.title("🗺️ Aktivitätskarte")
-        st.subheader("Aktivitätskarte")
 
         fit_file = st.file_uploader("FIT-Datei hochladen", type=["fit"])
 
@@ -91,7 +215,6 @@ def show_ekgstreamlit():
             if df.empty:
                 st.warning("Keine GPS-Daten in dieser Datei gefunden.")
             else:
-                # ── Kennzahlen ────────────────────────────────────────────────
                 st.subheader("Zusammenfassung")
                 cols = st.columns(4)
                 if "power" in df.columns:
@@ -103,7 +226,6 @@ def show_ekgstreamlit():
 
                 st.divider()
 
-                # ── Farbauswahl ───────────────────────────────────────────────
                 available_options = {
                     label: col for label, col in COLOR_OPTIONS.items()
                     if col in df.columns
@@ -114,7 +236,6 @@ def show_ekgstreamlit():
                 )
                 color_col = available_options[selected_label]
 
-                # ── Karte ─────────────────────────────────────────────────────
                 fig_map = plot_fit_map(df, color_by=color_col)
                 st.plotly_chart(fig_map, use_container_width=True)
 

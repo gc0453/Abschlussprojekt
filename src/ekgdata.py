@@ -21,7 +21,8 @@ class EKGdata:
 
         self.df = pd.read_csv(
             self.data_path, sep='\t', header=None,
-            names=["Messwerte in mV", "Zeit in ms"]
+            names=["Messwerte in mV", "Zeit in ms"],
+            comment='#'
         )
         self.peaks = np.array([])  # wird durch find_peaks() befüllt
 
@@ -88,9 +89,9 @@ class EKGdata:
         
         Returns:
             Plotly Figure-Objekt
-        """
+            
+        """    
         df_plot = self.df.head(num_samples)
-
         fig = px.line(
             df_plot,
             x="Zeit in ms",
