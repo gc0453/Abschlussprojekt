@@ -205,7 +205,7 @@ def show_ekgstreamlit():
 
         # PDF Export
         # ── PDF-Export ───────────────────────────────────────────────────────────
-        with st.expander("📄 PDF-Report exportieren"):
+        with st.expander("📕 PDF-Report exportieren"):
 
             export_name = st.selectbox("Person auswählen",person_names,key="pdf_select")
             export_person = next(p for p in persons if p.get_full_name() == export_name)
