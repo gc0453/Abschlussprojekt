@@ -3,13 +3,12 @@ from src.person import get_person_data
 from src.ekgdata import EKGdata
 from src.read_fit_data import load_fit_file
 from src.fit_map import plot_fit_map, COLOR_OPTIONS
-from datetime import date
-from src.add_person import add_person_with_ekg, update_person
 from src.add_person import add_person_with_ekg, update_person, delete_person
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
-from reportlab.lib.utils import ImageReader
+#from reportlab.lib.utils import ImageReader
+#from datetime import date
 
 def show_ekgstreamlit():
     """Hauptfunktion des EKG Dashboards nach dem Login.
