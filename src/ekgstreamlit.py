@@ -114,44 +114,50 @@ def show_ekgstreamlit():
                 if not compare_person.ekg_tests:
                     st.info(f"{compare_person.get_full_name()} hat keine EKG-Tests.")
                 else:
-                    compare_options = {f"EKG vom {t['date']} (ID {t['id']})": t for t in compare_person.ekg_tests}
-                    compare_label = st.selectbox("Test der Vergleichsperson auswählen", list(compare_options.keys()))
-                    compare_dict = compare_options[compare_label]
+                    # Filtere den aktuell ausgewählten Test aus der Vergleichliste
+                    available_tests = [t for t in compare_person.ekg_tests if t['id'] != ekg_dict['id']]
+                    
+                    if not available_tests:
+                        st.info("Du kannst ein EKG nicht mit sich selbst vergleichen. Bitte einen anderen Test auswählen.")
+                    else:
+                        compare_options = {f"EKG vom {t['date']} (ID {t['id']})": t for t in available_tests}
+                        compare_label = st.selectbox("Test der Vergleichsperson auswählen", list(compare_options.keys()))
+                        compare_dict = compare_options[compare_label]
 
-                    other_ekg = EKGdata(compare_dict)
-                    other_ekg.find_peaks()
+                        other_ekg = EKGdata(compare_dict)
+                        other_ekg.find_peaks()
 
-                    from src.compare import compare_peak_counts, compare_heart_rates, waveform_correlation, compare_peak_timing, overlay_plot
+                        from src.compare import compare_peak_counts, compare_heart_rates, waveform_correlation, compare_peak_timing, overlay_plot
 
-                    if st.button("Vergleichen"):
-                        pc = compare_peak_counts(ekg, other_ekg)
-                        hrc = compare_heart_rates(ekg, other_ekg)
-                        corr = waveform_correlation(ekg, other_ekg)
-                        mt = compare_peak_timing(ekg, other_ekg)
+                        if st.button("Vergleichen"):
+                            pc = compare_peak_counts(ekg, other_ekg)
+                            hrc = compare_heart_rates(ekg, other_ekg)
+                            corr = waveform_correlation(ekg, other_ekg)
+                            mt = compare_peak_timing(ekg, other_ekg)
 
-                        cols_metrics = st.columns(4)
-                        cols_metrics[0].metric("Peaks A", pc['a_count'])
-                        cols_metrics[1].metric("Peaks B", pc['b_count'])
-                        cols_metrics[2].metric("HR A", f"{hrc['hr_a']} BPM")
-                        cols_metrics[3].metric("HR B", f"{hrc['hr_b']} BPM")
+                            cols_metrics = st.columns(4)
+                            cols_metrics[0].metric("Peaks A", pc['a_count'])
+                            cols_metrics[1].metric("Peaks B", pc['b_count'])
+                            cols_metrics[2].metric("HR A", f"{hrc['hr_a']} BPM")
+                            cols_metrics[3].metric("HR B", f"{hrc['hr_b']} BPM")
 
-                        st.write(f"Unterschied Peaks: {pc['diff']}")
-                        st.write(f"Differenz HR: {hrc['diff']} BPM ({hrc['rel_percent']}%)")
-                        st.write(f"Signal-Korrelation: {corr:.3f}")
-                        st.write(f"Intervall A: {mt['mi_a_ms']} ms — Intervall B: {mt['mi_b_ms']} ms — Diff: {mt['diff_ms']} ms")
+                            st.write(f"Unterschied Peaks: {pc['diff']}")
+                            st.write(f"Differenz HR: {hrc['diff']} BPM ({hrc['rel_percent']}%)")
+                            st.write(f"Signal-Korrelation: {corr:.3f}")
+                            st.write(f"Intervall A: {mt['mi_a_ms']} ms — Intervall B: {mt['mi_b_ms']} ms — Diff: {mt['diff_ms']} ms")
 
-                        # Overlay-Plot
-                        label_a = f"{selected_name} — {ekg.date}"
-                        label_b = f"{compare_person_name} — {other_ekg.date}"
-                        fig_overlay = overlay_plot(
-                            ekg,
-                            other_ekg,
-                            max_samples=2000,
-                            title=f"Overlay: {selected_name} vs {compare_person_name}",
-                            label_a=label_a,
-                            label_b=label_b,
-                        )
-                        st.plotly_chart(fig_overlay, use_container_width=True, key=f"overlay_{ekg.id}_{other_ekg.id}")
+                            # Overlay-Plot
+                            label_a = f"{selected_name} — {ekg.date}"
+                            label_b = f"{compare_person_name} — {other_ekg.date}"
+                            fig_overlay = overlay_plot(
+                                ekg,
+                                other_ekg,
+                                max_samples=2000,
+                                title=f"Overlay: {selected_name} vs {compare_person_name}",
+                                label_a=label_a,
+                                label_b=label_b,
+                            )
+                            st.plotly_chart(fig_overlay, use_container_width=True, key=f"overlay_{ekg.id}_{other_ekg.id}")
 
         st.divider()
 

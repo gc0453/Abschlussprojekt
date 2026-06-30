@@ -27,13 +27,37 @@ def compare_heart_rates(ekg_a: EKGdata, ekg_b: EKGdata) -> Dict[str, float]:
     return {"hr_a": hr_a, "hr_b": hr_b, "diff": round(diff, 1), "rel_percent": round(rel, 1)}
 
 
-def align_waveforms(ekg_a: EKGdata, ekg_b: EKGdata, max_samples: int = 2000) -> Tuple[pd.Series, pd.Series]:
+def align_waveforms(ekg_a: EKGdata, ekg_b: EKGdata, max_samples: int = 2000, align_first_peak: bool = False) -> Tuple[pd.Series, pd.Series]:
     """Gleicht zwei Signalreihen auf gemeinsame Zeitachse ab und gibt die abgeschnittenen Series zurück.
 
     Beide Series werden auf `max_samples` gekürzt (oder gepadded mit NaN), sodass sie gleich lang sind.
+    
+    Args:
+        ekg_a: Erstes EKG
+        ekg_b: Zweites EKG
+        max_samples: Maximale Anzahl der Samples
+        align_first_peak: Wenn True, werden die EKGs zeitlich so ausgerichtet, dass ihre ersten Peaks übereinander liegen
     """
     sa = ekg_a.df["Messwerte in mV"].reset_index(drop=True).astype(float)
     sb = ekg_b.df["Messwerte in mV"].reset_index(drop=True).astype(float)
+
+    # Wenn Peak-Alignment gewünscht ist
+    if align_first_peak and len(ekg_a.peaks) > 0 and len(ekg_b.peaks) > 0:
+        first_peak_a = ekg_a.peaks[0]
+        first_peak_b = ekg_b.peaks[0]
+        peak_diff = first_peak_b - first_peak_a
+        
+        # Verschiebe die kürzere Serie, um die Peaks auszurichten
+        if peak_diff > 0:
+            # ekg_b Peak liegt später, also ekg_a am Anfang mit NaN auffüllen
+            sa = pd.Series(np.concatenate([np.full(peak_diff, np.nan), sa.values]))
+        elif peak_diff < 0:
+            # ekg_a Peak liegt später, also ekg_b am Anfang mit NaN auffüllen
+            sb = pd.Series(np.concatenate([np.full(-peak_diff, np.nan), sb.values]))
+        
+        # Neuindexierung nach der Verschiebung
+        sa = sa.reset_index(drop=True).astype(float)
+        sb = sb.reset_index(drop=True).astype(float)
 
     la = min(len(sa), max_samples)
     lb = min(len(sb), max_samples)
@@ -51,12 +75,15 @@ def align_waveforms(ekg_a: EKGdata, ekg_b: EKGdata, max_samples: int = 2000) -> 
     return sa, sb
 
 
-def waveform_correlation(ekg_a: EKGdata, ekg_b: EKGdata, max_samples: int = 2000) -> float:
+def waveform_correlation(ekg_a: EKGdata, ekg_b: EKGdata, max_samples: int = 2000, align_first_peak: bool = False) -> float:
     """Berechnet die Pearson-Korrelation zwischen zwei EKG-Zeitreihen.
 
     Gibt einen Wert in [-1, 1] zurück; NaN wird zu 0.0 konvertiert.
+    
+    Args:
+        align_first_peak: Wenn True, werden die EKGs zeitlich so ausgerichtet, dass ihre ersten Peaks übereinander liegen
     """
-    sa, sb = align_waveforms(ekg_a, ekg_b, max_samples=max_samples)
+    sa, sb = align_waveforms(ekg_a, ekg_b, max_samples=max_samples, align_first_peak=align_first_peak)
     joined = pd.concat([sa, sb], axis=1)
     joined.columns = ["a", "b"]
     corr = joined.corr().iloc[0, 1]
@@ -65,12 +92,21 @@ def waveform_correlation(ekg_a: EKGdata, ekg_b: EKGdata, max_samples: int = 2000
     return float(corr)
 
 
-def overlay_plot(ekg_a: EKGdata, ekg_b: EKGdata, max_samples: int = 2000, title: str = "EKG Overlay", label_a: str = None, label_b: str = None) -> go.Figure:
+def overlay_plot(ekg_a: EKGdata, ekg_b: EKGdata, max_samples: int = 2000, title: str = "EKG Overlay", label_a: str = None, label_b: str = None, align_first_peak: bool = True) -> go.Figure:
     """Erstellt eine überlagerte Plotly-Figur mit beiden EKG-Zeitreihen.
 
     Die Reihen werden auf `max_samples` gekürzt/aufgefüllt und übereinander dargestellt.
+    
+    Args:
+        ekg_a: Erstes EKG
+        ekg_b: Zweites EKG
+        max_samples: Maximale Anzahl der Samples
+        title: Titel des Plots
+        label_a: Label für EKG A
+        label_b: Label für EKG B
+        align_first_peak: Wenn True (Standard), werden die EKGs zeitlich so ausgerichtet, dass ihre ersten Peaks übereinander liegen
     """
-    sa, sb = align_waveforms(ekg_a, ekg_b, max_samples=max_samples)
+    sa, sb = align_waveforms(ekg_a, ekg_b, max_samples=max_samples, align_first_peak=align_first_peak)
 
     # x-Achse: wenn zeitstempel vorhanden, verwende die von ekg_a (angepasst), sonst Sample-Index
     try:
