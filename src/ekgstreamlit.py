@@ -10,6 +10,7 @@ from reportlab.pdfgen import canvas
 #from reportlab.lib.utils import ImageReader
 #from datetime import date
 
+
 def show_ekgstreamlit():
     """Hauptfunktion des EKG Dashboards nach dem Login.
 

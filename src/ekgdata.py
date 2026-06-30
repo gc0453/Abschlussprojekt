@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from scipy.signal import find_peaks
 
 
+
 class EKGdata:
     """Klasse zum Laden, Analysieren und Visualisieren von EKG-Daten."""
 

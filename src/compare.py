@@ -5,6 +5,7 @@ from typing import Tuple, Dict
 from src.ekgdata import EKGdata
 
 
+
 def compare_peak_counts(ekg_a: EKGdata, ekg_b: EKGdata) -> Dict[str, int]:
     """Vergleicht die Anzahl gefundener Peaks zwischen zwei EKGs.
 
