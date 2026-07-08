@@ -24,8 +24,10 @@ Ein einfaches Projekt für die Analyse von EKG-Daten und Aktivitätsdaten.
 - weitere Abhängigkeiten aus der Projektdatei
 
 ## Starten lokal
-```pip install -r requirements.txt```
-```streamlit run main.py```
+```bash
+pip install -r requirements.txt
+streamlit run main.py
+```
 
 ## Streamlit Share
 - Live-Version: https://abschlussprojekt-gleinser-behensky-bingen.streamlit.app/
