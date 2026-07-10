@@ -10,7 +10,14 @@ USER_FILE = os.path.join(BASE_DIR,"data","users.json")
 
 # ── Passwort prüfen ─────────────────────────────────────────────────────────
 def load_users():
+    """
+    Lädt alle registrierten Benutzer aus der JSON-Datei.
 
+    Returns:
+        dict: Ein Dictionary mit Benutzernamen als Schlüssel und
+        Passwort-Hashes als Werte. Existiert die Datei nicht,
+        wird ein leeres Dictionary zurückgegeben.
+    """
     if not os.path.exists(USER_FILE):
         return {}
 
@@ -18,13 +25,29 @@ def load_users():
         return json.load(file)
 
 def save_users(users):
+    """
+    Speichert alle Benutzer in der JSON-Datei.
 
+    Args:
+        users (dict): Dictionary mit Benutzernamen und den
+            zugehörigen Passwort-Hashes.
+    """
     os.makedirs(os.path.dirname(USER_FILE), exist_ok=True)
 
     with open(USER_FILE, "w", encoding="utf-8") as file:
         json.dump(users, file, indent=4)
 
 def hash_password(password: str) -> str:
+    """
+    Erstellt einen bcrypt-Hash für ein Passwort.
+
+    Args:
+        password (str): Das Klartext-Passwort.
+
+    Returns:
+        str: Der erzeugte Passwort-Hash.
+    """
+
     hashed = bcrypt.hashpw(
         password.encode("utf-8"),
         bcrypt.gensalt()
@@ -32,12 +55,29 @@ def hash_password(password: str) -> str:
     return hashed.decode("utf-8")
 
 def check_password(password: str, hashed_password: str) -> bool:
+    """
+    Überprüft, ob ein Passwort mit einem gespeicherten Hash übereinstimmt.
+
+    Args:
+        password (str): Das eingegebene Klartext-Passwort.
+        hashed_password (str): Der gespeicherte bcrypt-Hash.
+
+    Returns:
+        bool: True, wenn das Passwort korrekt ist, andernfalls False.
+    """
     return bcrypt.checkpw(
         password.encode("utf-8"),
         hashed_password.encode("utf-8")
     )
 
 def check_password_strength(password: str):
+    """
+    Zeigt die Login-Seite an.
+
+    Der Benutzer kann sich mit Benutzername und Passwort anmelden.
+    Bei erfolgreicher Authentifizierung werden die Login-Daten in
+    der Session gespeichert und die Anwendung neu geladen.
+    """
     checks = {
         "Mindestens 8 Zeichen": len(password) >= 8,
         "Groß- und Kleinbuchstaben": (
